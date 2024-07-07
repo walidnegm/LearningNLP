@@ -1,0 +1,77 @@
+#SIMPLE NEURAL NETWORK
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
+# Example model
+model = nn.Sequential(
+    nn.Linear(10, 20),
+    nn.ReLU(),
+    nn.Linear(20, 10)
+)
+
+# Set requires_grad to True for all parameters
+for param in model.parameters():
+    param.requires_grad = True
+
+# Define step function
+def step_function(x):
+    return np.where(x>=0, 1, 0)
+
+# Input data
+X = np.array([[0, 0],
+              [0, 1],
+              [1, 0],
+              [1, 1]])
+y = np.array([0, 0, 0, 1])
+weights = np.random.uniform(-1, 1, 2)
+bias = np.random.uniform(-1, 1)
+learning_rate = 0.1
+epochs = 10
+
+# To store weights, biases, and loss for later printing
+weights_history = []
+bias_history = []
+loss_history = []
+
+for param in model.parameters():
+    param.requires_grad = True
+
+# Training loop
+for epoch in range(epochs):
+    error_sum = 0
+    
+    for i in range(len(X)):
+        # Forward Pass
+        linear_output = np.dot(X[i], weights) + bias
+        predicted_output = step_function(linear_output)
+        
+        # Compute error
+        error = y[i] - predicted_output
+        error_sum += error**2  # Squared error for reporting
+        
+        # Update Weights and Bias
+        weights += learning_rate * error * X[i]
+        bias += learning_rate * error
+    
+    # Store weights, biases, and loss
+    weights_history.append(weights.copy())
+    bias_history.append(bias)
+    loss_history.append(error_sum)
+    
+    if epoch % 10 == 0:
+        print(f'Epoch {epoch}, Squared Error: {error_sum}')
+
+# Print weights, biases, and loss in a tabular format
+print("\nEpoch-wise Weights, Bias, and Loss:")
+print(f"{'Epoch':<10}{'Weight 1':<15}{'Weight 2':<15}{'Bias':<15}{'Loss':<15}")
+for epoch in range(epochs):
+    print(f"{epoch:<10}{weights_history[epoch][0]:<15.8f}{weights_history[epoch][1]:<15.8f}{bias_history[epoch]:<15.8f}{loss_history[epoch]:<15.8f}")
+
+# Testing
+print("\nTesting the network:")
+for i in range(4):
+    linear_output = np.dot(X[i], weights) + bias
+    predicted_output = step_function(linear_output)
+    print(f"Input: {X[i]}, Predicted Output: {predicted_output}, Target: {y[i]}")
