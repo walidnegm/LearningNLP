@@ -1,4 +1,4 @@
-### TRANSFORMER MODEL 
+### TRANSFORMER MODEL To show off attention WITH MY OWN DATA SET
 
 import tensorflow as tf
 from tensorflow.keras.layers import LayerNormalization, Dense, MultiHeadAttention, Dropout
