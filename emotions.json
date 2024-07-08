@@ -1,0 +1,185 @@
+{
+    "data": [
+      {
+        "text": "I am feeling great and happy",
+        "label": "happy"
+      },
+      {
+        "text": "I am so sad and depressed",
+        "label": "sad"
+      },
+      {
+        "text": "I am furious and angry",
+        "label": "angry"
+      },
+      {
+        "text": "This is a wonderful day",
+        "label": "happy"
+      },
+      {
+        "text": "I am not feeling well",
+        "label": "sad"
+      },
+      {
+        "text": "Everything is making me angry",
+        "label": "angry"
+      },
+      {
+        "text": "I am so joyful",
+        "label": "happy"
+      },
+      {
+        "text": "I feel so low",
+        "label": "sad"
+      },
+      {
+        "text": "Why is everything so frustrating?",
+        "label": "angry"
+      },
+      {
+        "text": "My heart is light and full of sunshine",
+        "label": "happy"
+      },
+      {
+        "text": "A dark cloud looms over my soul",
+        "label": "sad"
+      },
+      {
+        "text": "The fires of rage consume my mind",
+        "label": "angry"
+      },
+      {
+        "text": "I am on top of the world",
+        "label": "happy"
+      },
+      {
+        "text": "Melancholy grips me tightly",
+        "label": "sad"
+      },
+      {
+        "text": "I see red with every passing moment",
+        "label": "angry"
+      },
+      {
+        "text": "My spirit soars like an eagle",
+        "label": "happy"
+      },
+      {
+        "text": "An abyss of sorrow swallows me",
+        "label": "sad"
+      },
+      {
+        "text": "Rage flows through my veins like lava",
+        "label": "angry"
+      },
+      {
+        "text": "I am basking in the warmth of happiness",
+        "label": "happy"
+      },
+      {
+        "text": "A profound sadness envelops me",
+        "label": "sad"
+      },
+      {
+        "text": "Every thought is a burning fury",
+        "label": "angry"
+      },
+      {
+        "text": "I feel an inexplicable joy today",
+        "label": "happy"
+      },
+      {
+        "text": "Sadness clings to me like a second skin",
+        "label": "sad"
+      },
+      {
+        "text": "Anger is my constant companion",
+        "label": "angry"
+      },
+      {
+        "text": "Joy dances in my heart",
+        "label": "happy"
+      },
+      {
+        "text": "Despair drags me down",
+        "label": "sad"
+      },
+      {
+        "text": "Fury explodes within me",
+        "label": "angry"
+      },
+      {
+        "text": "I can't stop smiling",
+        "label": "happy"
+      },
+      {
+        "text": "I feel completely defeated",
+        "label": "sad"
+      },
+      {
+        "text": "My blood is boiling",
+        "label": "angry"
+      },
+      {
+        "text": "I feel like I'm walking on air",
+        "label": "happy"
+      },
+      {
+        "text": "The tears won't stop falling",
+        "label": "sad"
+      },
+      {
+        "text": "I am livid and enraged",
+        "label": "angry"
+      },
+      {
+        "text": "Life feels so bright and beautiful",
+        "label": "happy"
+      },
+      {
+        "text": "I'm drowning in my sorrows",
+        "label": "sad"
+      },
+      {
+        "text": "I feel like I'm about to explode",
+        "label": "angry"
+      },
+      {
+        "text": "I'm beaming with pride and happiness",
+        "label": "happy"
+      },
+      {
+        "text": "A wave of sadness hits me",
+        "label": "sad"
+      },
+      {
+        "text": "My frustration knows no bounds",
+        "label": "angry"
+      },
+      {
+        "text": "I'm filled with pure bliss",
+        "label": "happy"
+      },
+      {
+        "text": "I'm lost in a sea of sadness",
+        "label": "sad"
+      },
+      {
+        "text": "I can't contain my anger",
+        "label": "angry"
+      },
+      {
+        "text": "I'm jubilant beyond words",
+        "label": "happy"
+      },
+      {
+        "text": "I feel an overwhelming grief",
+        "label": "sad"
+      },
+      {
+        "text": "I'm fuming with anger",
+        "label": "angry"
+      }
+    ]
+  }
+  
