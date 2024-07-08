@@ -1,0 +1,16 @@
+from diffusers import StableDiffusionPipeline
+import torch
+
+# Load the pre-trained Stable Diffusion model
+model_id = "CompVis/stable-diffusion-v1-4"
+pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16)
+pipe = pipe.to("cuda")
+
+# Generate an image from a text prompt
+prompt = "A fantasy landscape with mountains and a river"
+with torch.autocast("cuda"):
+    image = pipe(prompt, guidance_scale=7.5)["sample"][0]
+
+# Save or display the generated image
+image.save("generated_image.png")
+image.show()
