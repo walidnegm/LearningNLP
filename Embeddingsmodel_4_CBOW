@@ -1,0 +1,130 @@
+
+#In the context of supervised learning in natural language processing (like training a Word2Vec model), a target is generally 
+#required during the training phase because the model learns to predict the target word(s) based on the input context. 
+#The target provides a "supervision" signal that guides the learning process by providing a measure of error between the model's 
+#prediction and the actual outcome.
+
+#1. Continuous Bag of Words (CBOW)
+#Training:
+#Objective: Predict the target word given a context.
+#Example: Using context words ["the", "cat", "on", "the"] to predict the target word "sat".
+#Hypothetical Prediction:
+#Input: ["the", "cat", "on", "the"]
+#Output: "sat"
+#In this situation, the model would take a set of context words and attempt to predict the word that is 
+#likely to appear with them based on the training data. If the phrase “the cat sat on the mat” was common in the training data, 
+#the model might predict “sat” given the context words.
+
+#2. Skip-Gram
+#Training:
+#bjective: Predict context words given a target word.
+#Example: Using target word "sat" to predict context words ["the", "cat", "on", "the"].
+#Hypothetical Prediction:
+#Input: "sat"
+#Output: ["the", "cat", "on", "the"]
+#In this case, the model would do the opposite: given a word, it would try to predict the words that are likely to appear near it in a text. So, if “sat” is given, and if “the cat sat on the mat” is a common phrase in the training data, the model might predict context words like “the”, “cat”, "on", "mat" and so on.
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
+# Sample data
+data = [
+    ("the cat sat on the mat".split(), "cat"),
+    ("the dog sat on the rug".split(), "dog"),
+    ("the bird flies over the trees".split(), "bird"),
+    ("a mouse ran under the bed".split(), "mouse"),
+    ("the sun sets behind the mountains".split(), "sun"),
+    ("a fish swims in the clear pond".split(), "fish"),
+    ("the moon shines bright in the night sky".split(), "moon"),
+    ("the cow grazes in the lush meadow".split(), "cow"),
+    ("the snake slithers through the tall grass".split(), "snake"),
+    ("a spider spins a web in the corner".split(), "spider"),
+    ("the lion roars in the vast savanna".split(), "lion"),
+    ("a bee buzzes around the blooming flowers".split(), "bee")
+]
+
+
+# Vocabulary
+vocab = set([word for context, target in data for word in context])
+word_to_idx = {word: idx for idx, word in enumerate(vocab)}
+idx_to_word = {idx: word for word, idx in word_to_idx.items()}
+
+# Context and target
+context_data = []
+for context, target in data:
+    context_idx = [word_to_idx[word] for word in context if word != target]
+    target_idx = word_to_idx[target]
+    context_data.append((context_idx, target_idx))
+
+# Model
+class CBOW(nn.Module):
+    def __init__(self, vocab_size, embed_size):
+        super(CBOW, self).__init__()
+        self.embeddings = nn.Embedding(vocab_size, embed_size)
+        self.linear1 = nn.Linear(embed_size, 128)
+        self.activation_function1 = nn.ReLU()
+        self.linear2 = nn.Linear(128, vocab_size)
+        self.activation_function2 = nn.LogSoftmax(dim=-1)
+        
+    def forward(self, inputs):
+        embeds = sum(self.embeddings(inputs)).view(1, -1)
+        out = self.linear1(embeds)
+        out = self.activation_function1(out)
+        out = self.linear2(out)
+        out = self.activation_function2(out)
+        return out
+
+    def compute_loss(self, outputs, targets):
+        # Example custom method to compute loss
+        loss = F.nll_loss(outputs, targets)
+        return loss
+    
+    def get_embedding(self, word_idx):
+        # Example custom method to get embedding for a specific word index
+        return self.embeddings(torch.tensor([word_idx], dtype=torch.long))
+
+# Parameters
+vocab_size = len(vocab)
+embed_size = 10
+
+# Initialize model, loss, optimizer
+model = CBOW(vocab_size, embed_size)
+loss_function = nn.NLLLoss()
+optimizer = optim.SGD(model.parameters(), lr=0.001)
+
+
+#When you call get_embedding before training, you will get the initial, randomly
+#initialized embeddings. After training, calling get_embedding will give you the 
+#updated embeddings that have been learned from the data.
+
+embedding = model.get_embedding(1)
+print("Embedding for word index 1:", embedding)
+
+# Training loop
+for epoch in range(100):
+    total_loss = 0
+    for context, target in context_data:
+        context_var = torch.tensor(context, dtype=torch.long)
+        model.zero_grad()
+        log_probs = model(context_var)
+        loss = loss_function(log_probs, torch.tensor([target], dtype=torch.long))
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+    if epoch % 10 == 0:
+        print(f'Epoch {epoch}, Loss: {total_loss}')
+
+# The model's `embeddings` parameter now contains the learned word vectors
+
+# Inference
+def predict_context_word(context_words):
+    context_idxs = torch.tensor([word_to_idx[w] for w in context_words], dtype=torch.long)
+    log_probs = model(context_idxs)
+    max_idx = torch.argmax(log_probs).item()
+    return idx_to_word[max_idx]
+
+# Example
+new_context = [ "shines", "bright", "in", "the", "night", "sky"]
+predicted_target = predict_context_word(new_context)
+print(f'Predicted target word for context {new_context} is: "{predicted_target}"')
