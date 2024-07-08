@@ -5,7 +5,6 @@
 
 import pandas as pd
 from datasets import load_dataset
-from transformers import BertConfig, BertModel
 import torch
 from torch.utils.data import DataLoader, Dataset
 import torch.nn as nn
@@ -13,6 +12,12 @@ import torch.optim as optim
 from sklearn.model_selection import train_test_split
 import re
 from collections import Counter
+from torch.utils.data import DataLoader, Dataset, random_split
+from transformers import BertConfig, BertTokenizer, BertModel, AdamW
+from torch.utils.data import DataLoader, Dataset, random_split
+from datasets import load_dataset
+
+
 
 # Load the dataset
 ds = load_dataset("AdamCodd/emotion-balanced")
@@ -63,22 +68,16 @@ class CustomDataset(Dataset):
             'label': torch.tensor(label, dtype=torch.long)
         }
 
-# Create datasets
-train_texts = ds['train']['text']
-train_labels = ds['train']['label']
-val_texts = ds['validation']['text']
-val_labels = ds['validation']['label']
-test_texts = ds['test']['text']
-test_labels = ds['test']['label']
+tokenized_datasets = ds.map(tokenize_function, batched=True)
 
-train_dataset = CustomDataset(train_texts, train_labels, vocab)
-val_dataset = CustomDataset(val_texts, val_labels, vocab)
-test_dataset = CustomDataset(test_texts, test_labels, vocab)
+# Format the dataset for PyTorch
+tokenized_datasets.set_format(type='torch', columns=['input_ids', 'label'])
+train_dataset = tokenized_datasets['train']
+eval_dataset = tokenized_datasets['validation']
+test_dataset = tokenized_datasets['test']
 
-# DataLoader
-train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
-eval_loader = DataLoader(val_dataset, batch_size=8, shuffle=False)
 
+# Custom BERT Model
 class CustomBERT(nn.Module):
     def __init__(self, config):
         super(CustomBERT, self).__init__()
@@ -86,14 +85,14 @@ class CustomBERT(nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
     
-    def forward(self, input_ids, attention_mask):
+    def forward(self, input_ids, attention_mask=None):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
         pooled_output = outputs[1]
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
         return logits
 
-# Define configuration
+#Define configuration
 config = BertConfig(
     vocab_size=len(vocab),
     hidden_size=256,
@@ -115,35 +114,61 @@ config = BertConfig(
 # Initialize the model
 model = CustomBERT(config)
 
-# Loss function and optimizer
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.AdamW(model.parameters(), lr=2e-5)
 
-# Training loop
-num_epochs = 3
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model.to(device)
+# Interactive prompt
+if os.path.exists('custom_bert_model.pth'):
+    choice = input("A pre-trained model exists. Do you want to use the existing model or retrain? (use/retrain): ").strip().lower()
+else:
+    choice = "retrain"
 
-for epoch in range(num_epochs):
-    model.train()
-    total_loss = 0
-    for batch in train_loader:
-        optimizer.zero_grad()
-        input_ids = batch['input_ids'].to(device)
-        attention_mask = batch['attention_mask'].to(device)
-        labels = batch['label'].to(device)
+if choice == "use":
+    # Load the model
+    loaded_model = CustomBERT(config)
+    loaded_model.load_state_dict(torch.load('custom_bert_model.pth'))
+    loaded_model.to(device)
+    loaded_model.eval()
+    model = loaded_model
+    print("Using the existing model.")
+
+else: 
+    
+    # Create a smaller subset for faster testing
+    train_subset_size = 10000
+    train_subset, _ = random_split(train_dataset, [train_subset_size, len(train_dataset) - train_subset_size])
+
+    # DataLoader
+    train_loader = DataLoader(train_subset, batch_size=16, shuffle=True)
+    eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False)
+    
+    # Loss function and optimizer
+    criterion = nn.CrossEntropyLoss()
+    optimizer = AdamW(model.parameters(), lr=2e-5)
+
+    # Training loop with fewer epochs and batch size
+    num_epochs = 10  # Reduce the number of epochs for faster testing
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
+    for epoch in range(num_epochs):
+        model.train()
+        total_loss = 0
+        for batch in train_loader:
+            optimizer.zero_grad()
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = (input_ids != 0).to(device)  # Create attention mask on the fly
+            labels = batch['label'].to(device)
         
-        outputs = model(input_ids, attention_mask)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
+            outputs = model(input_ids, attention_mask)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
         
-        total_loss += loss.item()
-    avg_loss = total_loss / len(train_loader)
-    print(f"Epoch {epoch+1}/{num_epochs}, Loss: {avg_loss:.4f}")
+            total_loss += loss.item()
+        avg_loss = total_loss / len(train_loader)
+        print(f"Epoch {epoch+1}/{num_epochs}, Loss: {avg_loss:.4f}")
 
-# Save the model
-torch.save(model.state_dict(), 'custom_bert_model.pth')
+    # Save the model
+    torch.save(model.state_dict(), 'custom_bert_model.pth')
 
 # Evaluation loop
 model.eval()
@@ -153,7 +178,7 @@ total = 0
 with torch.no_grad():
     for batch in eval_loader:
         input_ids = batch['input_ids'].to(device)
-        attention_mask = batch['attention_mask'].to(device)
+        attention_mask = (input_ids != 0).to(device)  # Create attention mask on the fly
         labels = batch['label'].to(device)
         
         outputs = model(input_ids, attention_mask)
@@ -169,18 +194,26 @@ loaded_model = CustomBERT(config)
 loaded_model.load_state_dict(torch.load('custom_bert_model.pth'))
 loaded_model.to(device)
 loaded_model.eval()
+# Define the label mapping
+label_mapping = {
+    0: 'sadness',
+    1: 'joy',
+    2: 'love',
+    3: 'anger',
+    4: 'fear',
+    5: 'surprise'
+}
 
 # Define a function to predict emotions from text
 def predict_emotion(text):
-    input_ids, attention_mask = tokenize(text, vocab, max_length=128)
-    input_ids = torch.tensor(input_ids, dtype=torch.long).unsqueeze(0).to(device)
-    attention_mask = torch.tensor(attention_mask, dtype=torch.long).unsqueeze(0).to(device)
+    input_ids = torch.tensor([[vocab.get(word, 0) for word in text.split()[:128]] + [0] * (128 - len(text.split()[:128]))], dtype=torch.long).to(device)
+    attention_mask = (input_ids != 0).to(device)
     with torch.no_grad():
         outputs = loaded_model(input_ids, attention_mask)
         _, predicted = torch.max(outputs, 1)
-    return label_mapping[predicted.item()]
-
+    return label_mapping.get(predicted.item(), "Unknown")
+    
 # Example usage
-text = "I am feeling very happy today!"
+text = "i feel ok and tired because i woke early"
 predicted_emotion = predict_emotion(text)
 print(f'Text: "{text}"\nPredicted Emotion: {predicted_emotion}')
