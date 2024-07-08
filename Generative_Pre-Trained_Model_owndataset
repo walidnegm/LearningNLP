@@ -1,7 +1,8 @@
+#Using a small training file of my own to train a ...
+
 #Generative pre-trained model (GPT) to predict the next best token, a transformer model generate dynamic embeddings 
 #that change based on the sentence context. In this example the model will predict the next best token within the context 
 #of a single sentence at a time. To handle longer contexts, such as multiple sentences in an essay, there are several strategies that can be employed.
-
 
 #Encoding: The process of transforming input data (e.g., a sentence) into a different format or structure that captures meaningful 
 #features. In transformers, this typically refers to the part of the model 
@@ -215,6 +216,3 @@ def generate_text(model, tokenizer, input_text, max_len):
 
 
 # Example usage of text generation
-input_text = "I feel so happy"
-generated_sentence = generate_text(transformer_model, tokenizer, input_text, max_len)
-print("Generated Sentence:", generated_sentence)
