@@ -1,4 +1,4 @@
-### CNN WITH EMBEDDING
+### CNN WITH EMBEDDING WITH MY OWN SMALL DATA SET
 
 import tensorflow as tf
 import pandas as pd
