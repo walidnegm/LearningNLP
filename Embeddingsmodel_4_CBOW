@@ -128,3 +128,38 @@ def predict_context_word(context_words):
 new_context = [ "shines", "bright", "in", "the", "night", "sky"]
 predicted_target = predict_context_word(new_context)
 print(f'Predicted target word for context {new_context} is: "{predicted_target}"')
+
+
+import torch.nn.functional as F
+# Define a function to compute cosine similarity
+def cosine_similarity(embedding1, embedding2):
+    cos_sim = F.cosine_similarity(embedding1, embedding2)
+    return cos_sim.item()
+
+# Extract embeddings for two words
+word1 = "cat"
+word2 = "dog"
+
+# Get the indices for the words
+word1_idx = word_to_idx[word1]
+word2_idx = word_to_idx[word2]
+
+# Get the embeddings for the words from the model
+embedding1 = model.get_embedding(word1_idx)
+embedding2 = model.get_embedding(word2_idx)
+
+# Compute the similarity score
+similarity_score = cosine_similarity(embedding1, embedding2)
+
+# Print the words, embeddings, and similarity score
+print(f"Word 1: {word1}")
+print(f"Embedding 1: {embedding1}")
+print(f"Word 2: {word2}")
+print(f"Embedding 2: {embedding2}")
+print(f"Cosine Similarity: {similarity_score:.4f}")
+
+
+#Extract the embeddings for the words "cat" and "dog".
+#Compute the cosine similarity between the embeddings.
+#Print the words, their embeddings, and the similarity score.
+#The cosine_similarity function uses PyTorch’s F.cosine_similarity to calculate the similarity. The embeddings are obtained using the get_embedding method from the CBOW model, and the indices for the words are retrieved from the word_to_idx dictionary.
