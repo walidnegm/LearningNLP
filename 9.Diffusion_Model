@@ -90,41 +90,82 @@ model = UNet2DModel(
 
 # Define the scheduler
 scheduler = DDPMScheduler(num_train_timesteps=1000)
+def train_model():
+    # Training loop
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-# Define the pipeline
-pipeline = DDPMPipeline(unet=model, scheduler=scheduler)
+    for epoch in range(10):  # Number of epochs
+        for i, (images, _) in enumerate(train_loader):
+            images = images.to(device)  # Shape: (batch_size, 3, 32, 32)
+            batch_size = images.shape[0]
 
-# Training loop
+            noise = torch.randn_like(images).to(device)  # Shape: (batch_size, 3, 32, 32)
+            timesteps = torch.randint(0, scheduler.num_train_timesteps, (batch_size,), device=device).long()  # Shape: (batch_size,)
+
+            # Forward pass
+            noisy_images = scheduler.add_noise(images, noise, timesteps)  # Shape: (batch_size, 3, 32, 32)
+            model_output = model(noisy_images, timesteps).sample  # Shape: (batch_size, 3, 32, 32)
+
+            # Calculate loss
+            loss = torch.nn.functional.mse_loss(model_output, noise)  # Loss between predicted noise and actual noise
+
+            # Backward pass
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            if i % 100 == 0:
+                print(f"Epoch {epoch}, Step {i}, Loss: {loss.item()}")
+
+    # Save the model
+    model.save_pretrained("diffusion_model")
+    scheduler.save_pretrained("diffusion_scheduler")
+
+def load_model():
+    global model, scheduler
+    model = UNet2DModel.from_pretrained("diffusion_model")
+    scheduler = DDPMScheduler.from_pretrained("diffusion_scheduler")
+
+# User prompt
+choice = input("Do you want to use the saved model or retrain? (use/retrain): ").strip().lower()
+
+if choice == "retrain":
+    train_model()
+elif choice == "use":
+    if os.path.exists("diffusion_model") and os.path.exists("diffusion_scheduler"):
+        load_model()
+    else:
+        print("Saved model not found. Training the model.")
+        train_model()
+else:
+    print("Invalid choice. Please type 'use' or 'retrain'.")
+
+# Generate an image from noise
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+model.eval()
 
-for epoch in range(10):  # Number of epochs
-    for i, (images, _) in enumerate(train_loader):
-        images = images.to(device)  # Shape: (batch_size, 3, 32, 32)
-        batch_size = images.shape[0]
-        
-        noise = torch.randn_like(images).to(device)  # Shape: (batch_size, 3, 32, 32)
-        timesteps = torch.randint(0, scheduler.num_train_timesteps, (batch_size,), device=device).long()  # Shape: (batch_size,)
+# Sample a random noise image
+num_inference_steps = 1000  # The number of denoising steps
+image_size = (1, 3, 32, 32)  # Batch size 1, 3 color channels, 32x32 resolution
+random_noise = torch.randn(image_size).to(device)
 
-        # Forward pass
-        noisy_images = scheduler.add_noise(images, noise, timesteps)  # Shape: (batch_size, 3, 32, 32)
-        model_output = model(noisy_images, timesteps).sample  # Shape: (batch_size, 3, 32, 32)
+# Use the model to denoise the image
+with torch.no_grad():
+    generated_image = random_noise
+    for t in reversed(range(num_inference_steps)):
+        timesteps = torch.tensor([t] * image_size[0]).to(device)
+        predicted_noise = model(generated_image, timesteps).sample
+        generated_image = scheduler.step(predicted_noise, t, generated_image).prev_sample
 
-        # Calculate loss
-        loss = torch.nn.functional.mse_loss(model_output, noise)  # Loss between predicted noise and actual noise
+# Post-process the generated image
+generated_image = (generated_image * 0.5 + 0.5).clamp(0, 1)  # Scale to [0, 1] range
+generated_image = generated_image.cpu().permute(0, 2, 3, 1).numpy()  # Convert to numpy array and move channels
 
-        # Backward pass
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        if i % 100 == 0:
-            print(f"Epoch {epoch}, Step {i}, Loss: {loss.item()}")
-
-# Save the model
-model.save_pretrained("diffusion_model")
-scheduler.save_pretrained("diffusion_scheduler")
-
-
+# Save or display the generated image
+image = Image.fromarray((generated_image[0] * 255).astype(np.uint8))
+image.save("generated_image.png")
+image.show()
 
