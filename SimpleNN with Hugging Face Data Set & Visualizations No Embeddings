@@ -1,0 +1,252 @@
+#A simple neural network using a more involved data set and some visualizations 
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import pandas as pd
+import matplotlib.pyplot as plt
+from graphviz import Digraph
+from IPython.display import display
+from torchinfo import summary
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from datasets import load_dataset
+from IPython.display import display, Image
+
+import torch
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+# Visualization function for sequence input
+def visualize_with_input_and_weights(model, input_tensor, input_text):
+    dot = Digraph(node_attr={'style': 'filled', 'fontsize': '12'})
+
+    # Convert input tensor to numpy array and get input values
+    input_values = input_tensor.numpy().flatten()
+    
+    # Add nodes for each input token
+    for i, val in enumerate(input_values):
+        dot.node(f'I{i}', f'Token{i}\n{val:.4f}')
+    
+    # Get weights and biases from the model
+    w1 = model.fc1.weight.detach().numpy()
+    b1 = model.fc1.bias.detach().numpy()
+    w2 = model.fc2.weight.detach().numpy()
+    b2 = model.fc2.bias.detach().numpy()[0]
+
+    # Compute hidden layer outputs
+    z = np.dot(input_values, w1.T) + b1
+    hidden_output = torch.sigmoid(torch.Tensor(z)).numpy()
+
+    # Add nodes for hidden layer
+    for i, (z_val, h_val) in enumerate(zip(z, hidden_output)):
+        dot.node(f'H{i}', f'Hidden{i}\nZ: {z_val:.4f}\nσ(Z) = {h_val:.4f}')
+    
+    # Compute output layer
+    z_out = np.dot(hidden_output, w2.T) + b2
+    final_output = torch.sigmoid(torch.Tensor(z_out)).numpy()
+
+    dot.node('O', f'Output\nZ: {z_out[0]:.4f}\nσ(Z) = {final_output[0]:.4f}')
+
+    # Connect input tokens to hidden layer
+    for i in range(len(input_values)):
+        for j in range(len(hidden_output)):
+            dot.edge(f'I{i}', f'H{j}', f'W: {w1[j, i % w1.shape[1]]:.4f}\nB: {b1[j]:.4f}')
+
+    # Connect hidden layer to output
+    for i in range(len(hidden_output)):
+        dot.edge(f'H{i}', 'O', f'W: {w2[0, i]:.4f}')  # Adjust edge weights
+
+    return dot
+# Load the dataset
+ds = load_dataset("AdamCodd/emotion-balanced")
+
+# Convert the dataset to a pandas DataFrame
+train_df = pd.DataFrame(ds['train'])
+validation_df = pd.DataFrame(ds['validation'])
+test_df = pd.DataFrame(ds['test'])
+
+# Combine the datasets if necessary (optional)
+df = pd.concat([train_df, validation_df, test_df])
+
+# Define the label mapping
+label_mapping = {
+    0: 'sadness',
+    1: 'joy',
+    2: 'love',
+    3: 'anger',
+    4: 'fear',
+    5: 'surprise'
+}
+
+# Preprocess the text data
+texts = df['text'].tolist()
+labels = df['label'].tolist()
+
+# Tokenize the text data
+tokenizer = Tokenizer(filters='', lower=True, oov_token='<OOV>')
+tokenizer.fit_on_texts(texts)
+word_index = tokenizer.word_index
+vocab_size = len(word_index) + 1  # Add 1 for padding/oov token
+
+# Convert texts to sequences
+sequences = tokenizer.texts_to_sequences(texts)
+
+# Define the maximum length for padding
+max_len = 20  # Adjust this based on the data
+
+# Pad sequences
+padded_sequences = pad_sequences(sequences, maxlen=max_len, padding='post')
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(padded_sequences, labels, test_size=0.3, random_state=42)
+
+# Convert to PyTorch tensors
+X_train = torch.tensor(X_train, dtype=torch.float32)
+X_test = torch.tensor(X_test, dtype=torch.float32)
+y_train = torch.tensor(y_train, dtype=torch.long)
+y_test = torch.tensor(y_test, dtype=torch.long)
+
+X_train = X_train.to(device)
+y_train = y_train.to(device)
+X_test = X_test.to(device)
+y_test = y_test.to(device)
+
+# Define the SimpleNN class
+class SimpleNN(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim):
+        super(SimpleNN, self).__init__()
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, output_dim)
+
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))  # ReLU activation for the hidden layer
+        x = self.fc2(x)  # Output layer without activation for logits
+        return x
+
+# Parameters
+input_dim = max_len  # Adjust this based on the padded sequence length
+hidden_dim = 10  # Adjust based on your preference
+output_dim = len(label_mapping)  # Number of classes
+
+# Instantiate the model
+model = SimpleNN(input_dim, hidden_dim, output_dim).to(device)
+
+# Define loss function and optimizer
+criterion = nn.CrossEntropyLoss()  # Cross Entropy Loss for multi-class classification
+optimizer = optim.SGD(model.parameters(), lr=0.01)
+
+# Training loop
+num_epochs = 10
+for epoch in range(num_epochs):
+    model.train()
+    optimizer.zero_grad()
+    
+    # Forward pass
+    logits = model(X_train)
+    loss = criterion(logits, y_train)
+    
+    # Backward pass and optimization
+    loss.backward()
+    optimizer.step()
+    
+    if (epoch + 1) % 1 == 0:
+        print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
+
+# Evaluate the model on a single example from the test data and get logits
+model.eval()
+# Select a sample index to visualize
+sample_idx = 0
+
+# Get the sample input and text
+sample_input = X_test[sample_idx].unsqueeze(0)  # Add batch dimension
+sample_text = texts[sample_idx]
+sample_input = sample_input.to(device)
+
+# Print the input text for the sample item
+print(f"Input Text: {sample_text}")
+# Print the corresponding label for the sample item
+print(f"Corresponding Label: {label_mapping[labels[sample_idx]]}")
+
+
+with torch.no_grad():
+    sample_logits = model(sample_input).numpy().flatten()
+
+dot = visualize_with_input_and_weights(model, sample_input, sample_text)
+
+display(dot)  # Changed line
+# Define the softmax function
+def softmax(logits):
+    exp_logits = np.exp(logits)
+    softmax_probs = exp_logits / np.sum(exp_logits)
+    return softmax_probs
+
+# Get softmax probabilities for the sample logits
+sample_probs = softmax(sample_logits)
+
+# Define class labels
+classes = list(label_mapping.values())
+
+# Create the plot
+fig, ax1 = plt.subplots(figsize=(8, 5))
+ax1.bar(classes, sample_probs, color='skyblue', label='Softmax Probability')
+ax1.set_xlabel('Classes')
+ax1.set_ylabel('Softmax Probability')
+ax1.set_title('Softmax Probabilities for Logits')
+ax1.set_ylim(0, 1)
+
+for i, prob in enumerate(sample_probs):
+    ax1.text(i, prob, f'{prob:.2f}', ha='center', va='bottom')
+
+ax2 = ax1.twinx()
+ax2.plot(classes, sample_logits, color='red', marker='o', linestyle='-', linewidth=2, markersize=8, label='Logits')
+ax2.set_ylabel('Logits')
+
+fig.legend(loc="upper right")
+plt.show()
+
+# Summary of the model
+from torchinfo import summary
+
+print(summary(model, input_size=(1, input_dim)))
+
+
+# Example new text
+new_text = "I feel very confused"
+
+# Preprocess the text and convert to a sequence
+new_sequence = tokenizer.texts_to_sequences([new_text])
+new_padded_sequence = pad_sequences(new_sequence, maxlen=max_len, padding='post')
+
+# Convert to PyTorch tensor
+new_input = torch.tensor(new_padded_sequence, dtype=torch.float32)
+new_input = new_input.to(device)  # Move new_input to the correct device
+
+# Ensure the model is on the correct device
+model = model.to(device)
+model.eval()
+
+with torch.no_grad():
+    # Pass the input through the model
+    new_logits = model(new_input)
+    
+    # Move the result to the CPU and convert to NumPy
+    new_logits = new_logits.cpu().numpy().flatten()
+    
+    # Apply softmax to get probabilities
+    new_probs = softmax(torch.tensor(new_logits), dim=0).numpy()
+
+# Print the predicted probabilities and label
+print(f"Predicted Probabilities: {new_probs}")
+print(f"Predicted Label: {label_mapping[np.argmax(new_probs)]}")
+
+# Visualize the input and weights
+dot = visualize_with_input_and_weights(model, new_input, new_text)
+display(dot)  # Display the visualization
