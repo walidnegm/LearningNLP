@@ -26,6 +26,13 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Visualization function for sequence input
 def visualize_with_input_and_weights(model, input_tensor, input_text):
+    
+    # Move input_tensor to CPU if it's not already
+    input_tensor = input_tensor.cpu()
+    
+    # Convert input tensor to numpy array and get input values
+    input_values = input_tensor.numpy().flatten()
+    
     dot = Digraph(node_attr={'style': 'filled', 'fontsize': '12'})
 
     # Convert input tensor to numpy array and get input values
@@ -36,11 +43,11 @@ def visualize_with_input_and_weights(model, input_tensor, input_text):
         dot.node(f'I{i}', f'Token{i}\n{val:.4f}')
     
     # Get weights and biases from the model
-    w1 = model.fc1.weight.detach().numpy()
-    b1 = model.fc1.bias.detach().numpy()
-    w2 = model.fc2.weight.detach().numpy()
-    b2 = model.fc2.bias.detach().numpy()[0]
-
+    w1 = model.fc1.weight.detach().cpu().numpy()
+    b1 = model.fc1.bias.detach().cpu().numpy()
+    w2 = model.fc2.weight.detach().cpu().numpy()
+    b2 = model.fc2.bias.detach().cpu().numpy()
+    
     # Compute hidden layer outputs
     z = np.dot(input_values, w1.T) + b1
     hidden_output = torch.sigmoid(torch.Tensor(z)).numpy()
@@ -175,10 +182,6 @@ print(f"Input Text: {sample_text}")
 # Print the corresponding label for the sample item
 print(f"Corresponding Label: {label_mapping[labels[sample_idx]]}")
 
-
-with torch.no_grad():
-    sample_logits = model(sample_input).numpy().flatten()
-
 dot = visualize_with_input_and_weights(model, sample_input, sample_text)
 
 display(dot)  # Changed line
@@ -188,29 +191,9 @@ def softmax(logits):
     softmax_probs = exp_logits / np.sum(exp_logits)
     return softmax_probs
 
-# Get softmax probabilities for the sample logits
-sample_probs = softmax(sample_logits)
 
 # Define class labels
 classes = list(label_mapping.values())
-
-# Create the plot
-fig, ax1 = plt.subplots(figsize=(8, 5))
-ax1.bar(classes, sample_probs, color='skyblue', label='Softmax Probability')
-ax1.set_xlabel('Classes')
-ax1.set_ylabel('Softmax Probability')
-ax1.set_title('Softmax Probabilities for Logits')
-ax1.set_ylim(0, 1)
-
-for i, prob in enumerate(sample_probs):
-    ax1.text(i, prob, f'{prob:.2f}', ha='center', va='bottom')
-
-ax2 = ax1.twinx()
-ax2.plot(classes, sample_logits, color='red', marker='o', linestyle='-', linewidth=2, markersize=8, label='Logits')
-ax2.set_ylabel('Logits')
-
-fig.legend(loc="upper right")
-plt.show()
 
 # Summary of the model
 from torchinfo import summary
@@ -241,7 +224,8 @@ with torch.no_grad():
     new_logits = new_logits.cpu().numpy().flatten()
     
     # Apply softmax to get probabilities
-    new_probs = softmax(torch.tensor(new_logits), dim=0).numpy()
+    new_probs = softmax(new_logits)
+
 
 # Print the predicted probabilities and label
 print(f"Predicted Probabilities: {new_probs}")
@@ -250,3 +234,24 @@ print(f"Predicted Label: {label_mapping[np.argmax(new_probs)]}")
 # Visualize the input and weights
 dot = visualize_with_input_and_weights(model, new_input, new_text)
 display(dot)  # Display the visualization
+
+sample_probs = new_probs
+
+
+# Create the plot
+fig, ax1 = plt.subplots(figsize=(8, 5))
+ax1.bar(classes, sample_probs, color='skyblue', label='Softmax Probability')
+ax1.set_xlabel('Classes')
+ax1.set_ylabel('Softmax Probability')
+ax1.set_title('Softmax Probabilities for Logits')
+ax1.set_ylim(0, 1)
+
+for i, prob in enumerate(sample_probs):
+    ax1.text(i, prob, f'{prob:.2f}', ha='center', va='bottom')
+
+ax2 = ax1.twinx()
+ax2.plot(classes, new_logits, color='red', marker='o', linestyle='-', linewidth=2, markersize=8, label='Logits')
+ax2.set_ylabel('Logits')
+
+fig.legend(loc="upper right")
+plt.show()
